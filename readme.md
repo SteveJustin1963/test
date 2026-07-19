@@ -1,405 +1,657 @@
-The user is asking about a fascinating evolution in robotics control. They started with Unitree's hybrid AI system, then explored applying it to Robby the 
-Robot, simplified to a stick figure URDF model, and now want to skip the AI training entirely and use pure mathematical Model Predictive Control (MPC) 
-instead.
+# The Quark Wake Effect — Complete Physics Reference
 
-They're essentially asking: "Can we replace the AI brain with a highly optimized mathematical controller that calculates the perfect movements in 
-real-time using physics equations?"
-
-The answer is absolutely yes - this is a mature, well-understood field in robotics. I should expand on this, giving them the proper technical foundation, 
-the algorithms involved, and practical guidance.
-
-Let me think about what to cover:
-
-1. **Model Predictive Control (MPC)** - The core concept
-2. **Whole-Body Control (WBC)** - Modern frameworks
-3. **Key mathematical components**:
-   - Forward/Inverse Dynamics
-   - Inverse Kinematics
-   - Zero Moment Point (ZMP) / Capture Point
-   - Centroidal Dynamics
-   - Trajectory Optimization (Direct Collocation)
-4. **Libraries they can actually use**:
-   - Pinocchio (rigid body dynamics)
-   - Crocoddyl (trajectory optimization)
-   - Drake (MIT's robotics toolbox)
-   - CasADi (nonlinear optimization)
-   - Control Toolbox (ETH Zurich)
-   - MPC libraries
-5. **The hybrid approach** - which is actually what modern robots do
-6. **Sample code framework**
-
-I should also address:
-- The limitations of pure MPC vs AI
-- Why most modern robots actually use BOTH (which connects back to their original Unitree question)
-- The "stack" approach where MPC handles balance and AI handles perception/adaptation
-
-Let me also think about Robby-specific considerations:
-- His unique heavy top, spinning head
-- His mechanical, non-humanoid proportions
-- How to optimize his body for control efficiency
-
-I should give them a comprehensive but practical response with actual code examples and real open-source libraries they can use today.
-
-Let me structure this as:
-
-1. The Big Picture: Yes, it's possible and it's called Model Predictive Control
-2. The Mathematical Stack: What algorithms power it
-3. Real Libraries You Can Use Today (with names and GitHub links)
-4. Actual Code Framework in Python
-5. Robby-Specific Optimization
-6. The Smart Hybrid: MPC + AI
-7. Next Steps
-
-I'll use the thinking mode as instructed.
-...done thinking.
-
-# Pure Mathematical Control for Robby: The MPC Approach
-
-Yes — you can absolutely replace the AI "trial-and-error brain" with a **pure mathematical controller** that calculates the perfect movements in real time 
-using physics equations. This is actually the **gold standard for legged robotics** at places like Boston Dynamics, MIT, and ETH Zurich.
-
-This is called **Model Predictive Control (MPC)** combined with **Whole-Body Control (WBC)**. Let me give you the complete technical stack.
+> **2026 Discovery**: First direct physical proof that the universe's earliest matter (Quark-Gluon Plasma) behaved as a near-perfect liquid, published by MIT + CERN CMS Collaboration.
 
 ---
 
-## The Core Idea
+## Table of Contents
+1. [Core Physics: Recreating the Big Bang](#1-core-physics-recreating-the-big-bang)
+2. [The QCD Phase Diagram](#2-the-qcd-phase-diagram)
+3. [Quark-Gluon Plasma Thermodynamics](#3-quark-gluon-plasma-thermodynamics)
+4. [Bjorken Hydrodynamics](#4-bjorken-hydrodynamics)
+5. [The Quark Wake Effect — Mach Cone Formation](#5-the-quark-wake-effect--mach-cone-formation)
+6. [Jet Quenching: BDMPS Radiative Energy Loss](#6-jet-quenching-bdmps-radiative-energy-loss)
+7. [Collisional Energy Loss](#7-collisional-energy-loss)
+8. [The Perfect Liquid: KSS Viscosity Bound](#8-the-perfect-liquid-kss-viscosity-bound)
+9. [The Z Boson Tagging Technique](#9-the-z-boson-tagging-technique)
+10. [Two-Particle Correlations and Azimuthal Harmonics](#10-two-particle-correlations-and-azimuthal-harmonics)
+11. [Cooper-Frye Freeze-out](#11-cooper-frye-freeze-out)
+12. [Color Glass Condensate Initial State](#12-color-glass-condensate-initial-state)
+13. [What Was Measured: Observables](#13-what-was-measured-observables)
+14. [How Everything Connects](#14-how-everything-connects)
+15. [Python Simulation Programs](#15-python-simulation-programs)
+16. [Scientific References](#16-scientific-references)
 
-Instead of a neural network "guessing" what to do, the program **solves physics equations 100 times per second** to compute the mathematically perfect 
-motor commands.
+---
+
+## 1. Core Physics: Recreating the Big Bang
+
+In the first **~10 microseconds** after the Big Bang, the universe was too hot (T > 155 MeV ≈ 1.8 × 10¹² K) for protons or neutrons to form. Quarks and gluons — the fundamental building blocks of nuclear matter — moved freely in a state called **Quark-Gluon Plasma (QGP)**.
+
+To study this, scientists at [CERN](https://home.cern/science/accelerators/large-hadron-collider) accelerate lead nuclei (Pb, Z=82, A=208) to 99.9999% the speed of light and smash them together, momentarily recreating microscopic droplets of this primordial plasma at temperatures **~100,000× hotter than the sun's core**.
 
 ```
-Real-Time Control Loop (runs at 100-1000 Hz):
-
-   ┌─────────────────────────────────────────────┐
-   │  SENSORS → MATH ENGINE → MOTOR COMMANDS     │
-   │  (IMU,        (Physics         (Torques     │
-   │  encoders)    equations)       to joints)   │
-   └─────────────────────────────────────────────┘
-          ↑                              │
-          └──── 1-10 ms loop ────────────┘
+[Lead Ion]──(~2.76 TeV/nucleon)──> HEAD-ON COLLISION <──(~2.76 TeV/nucleon)──[Lead Ion]
+                                          │
+                                   T ~ 4×10¹² K
+                                   τ_thermalize ~ 0.1–0.5 fm/c
+                                          │
+                                   ┌──────▼──────┐
+                                   │     QGP     │  ← Primordial soup
+                                   │   "Ocean"   │     recreated
+                                   └─────────────┘
+                                          │
+                                   Expands + cools
+                                          │
+                                   T ~ 155 MeV → Hadronization
+                                          │
+                                   Thousands of hadrons
+                                   detected by CMS
 ```
 
 ---
 
-## The Mathematical Stack (What the Code Does)
+## 2. The QCD Phase Diagram
 
-Your program runs **five layers of mathematics simultaneously**:
+Quantum Chromodynamics (QCD) — the theory of the strong nuclear force — predicts a **phase transition** between ordinary hadronic matter and QGP.
 
-### 1. Forward Dynamics — "What happens if I push this motor?"
+```
+Temperature T
+     │
+4×10¹²K│                    ┌─────────────────────────────┐
+       │                    │   QUARK-GLUON PLASMA (QGP)  │
+       │                    │   (LHC, Early Universe)      │
+Tc~1.8×│ ─ ─ ─ ─ ─ ─ ─ ─ ─ ┼─── crossover at μ_B ≈ 0    │
+10¹² K │                    │                              │
+       │  HADRON GAS        │                              │
+       │  (protons,neutrons)│  1st order phase boundary →  │
+       └────────────────────┴──────────────────────────────►
+                            μ_B (baryon chemical potential)
+                         (0 for LHC;  high for neutron stars)
+```
 
-Uses the **Newton-Euler equations** to simulate how Robby's body will move given a set of joint torques.
+### Critical Temperature (Lattice QCD result):
 
-$$M(q)\ddot{q} + C(q,\dot{q})\dot{q} + g(q) = \tau$$
+```
+T_c = 155 ± 1.5 MeV  ≈  1.8 × 10¹² K
+```
 
-Where:
-- `M(q)` = Mass matrix (depends on joint positions)
-- `C(q,̇q)` = Coriolis forces
-- `g(q)` = Gravity vector
-- `τ` = Motor torques you're solving for
+At μ_B = 0 (LHC conditions), the transition is a smooth **crossover**, not a sharp phase transition.
 
-### 2. Inverse Kinematics (IK) — "Where must each joint be to place the foot here?"
-
-Given a target foot position, instantly calculate the required hip/knee/ankle angles using geometry.
-
-### 3. Zero Moment Point (ZMP) — "Will he fall?"
-
-Calculate the point on the ground where the **sum of all forces equals zero**. If this point stays **inside the foot's support polygon**, the robot stays 
-balanced.
-
-### 4. Centroidal Dynamics — "Move the whole body as one mass"
-
-Treat Robby as a single point mass (his **center of mass**) and plan how that point moves through space, then compute the joint motions needed.
-
-### 5. Quadratic Programming (QP) Solver — "Find the optimal solution"
-
-The core engine that solves all the above **simultaneously** in milliseconds, finding the motor commands that satisfy balance, friction, and joint limits 
-at once.
+**Order parameters:**
+- **Polyakov loop** `⟨L⟩`: measures colour deconfinement
+- **Chiral condensate** `⟨ψ̄ψ⟩`: measures chiral symmetry restoration
 
 ---
 
-## Real Open-Source Libraries You Can Use Today
+## 3. Quark-Gluon Plasma Thermodynamics
 
-These are **production-grade, used in real robots**, all free:
+### 3.1 Stefan-Boltzmann Equation of State
 
-| Library | Language | What It Does | GitHub/Source |
-|---------|----------|--------------|---------------|
-| **Pinocchio** | C++/Python | Rigid-body dynamics, the math engine | `stack-of-tasks/pinocchio` |
-| **Crocoddyl** | C++/Python | Optimal control, trajectory generation | `loco-3d/crocoddyl` |
-| **Drake** | C++/Python | MIT's full robotics toolbox (MPC built in) | `RobotLocomotion/drake` |
-| **CasADi** | C++/Python | Nonlinear optimization solver | `casadi/casadi` |
-| **OCS2** | C++/Python | ETH's MPC framework | `leggedrobotics/ocs2` |
-| **Control Toolbox** | C++ | ETH's optimal control library | `ethz-adrl/control-toolbox` |
-| **MuJoCo** | C/Python | Physics simulator (you can also use it as a dynamics engine) | `google-deepmind/mujoco` |
+For an ideal relativistic gas of quarks and gluons (T ≫ T_c):
 
----
+```
+ε = g* · (π²/30) · T⁴
 
-## A Working Python Code Framework for Robby
+where:
+  ε  = energy density  [GeV/fm³]
+  g* = effective degrees of freedom
+     = g_gluons + (7/8)·g_quarks
+     = 16 + (7/8)·(2·2·3·Nf) = 16 + (7/8)·36 = 47.5  (for Nf=3 flavours)
+  T  = temperature  [GeV]
+```
 
-Here's a **foundational script** that ties together the math:
+Pressure and entropy density:
 
-```python
-"""
-Robby the Robot — Pure Mathematical Controller
-Uses Pinocchio for dynamics + CasADi for real-time optimization
-"""
+```
+P = ε/3                   (ultra-relativistic EoS)
+s = (4/3)·(ε/T) = dP/dT  (entropy density)
+```
 
-import pinocchio as pin
-import numpy as np
-from scipy.optimize import minimize
+### 3.2 Speed of Sound
 
-# ============================================================
-# STEP 1: Load Robby's stick-figure URDF (your simplified model)
-# ============================================================
-model = pin.buildModelFromUrdf("robby_stick_figure.urdf")
-data = model.createData()
+Crucially sets the Mach cone angle:
 
-# Get the body frame IDs
-left_foot_id = model.getFrameId("left_ankle")
-right_foot_id = model.getFrameId("right_ankle")
-com_id = model.getFrameId("center_of_mass")  # Robby's heavy chest
+```
+c_s² = ∂P/∂ε
 
-# ============================================================
-# STEP 2: Define Robby's target trajectory
-# ============================================================
-class RobbyController:
-    def __init__(self):
-        # PD Gains (tune these — they act like virtual springs)
-        self.kp = 80.0   # Position stiffness
-        self.kd = 8.0    # Damping
-        
-        # Target walking speed (m/s)
-        self.target_velocity = np.array([0.3, 0.0, 0.0])  # forward
-        
-        # Step timing
-        self.step_duration = 0.4  # seconds per step
-        self.step_height = 0.05   # how high to lift each foot
-        
-        # ZMP safety margin
-        self.foot_half_length = 0.10  # meters
-        self.foot_half_width  = 0.06
-        
-    def compute_foot_trajectory(self, phase):
-        """
-        Generate a smooth spline for the swinging foot.
-        phase goes from 0.0 (heel-strike) to 1.0 (toe-off)
-        """
-        # Cycloid motion: smooth up, smooth down
-        s = phase
-        height = self.step_height * np.sin(np.pi * s)
-        forward = 0.15 * (s - 0.5)  # 15cm per step
-        
-        return np.array([forward, 0.0, height])
-    
-    def check_zmp_stability(self, q, dq):
-        """
-        Zero Moment Point calculation.
-        Returns True if Robby will remain balanced.
-        """
-        # Compute current center of mass position and velocity
-        com = pin.centerOfMass(model, data, q)
-        com_vel = pin.centerOfMass(model, data, q, dq)
-        
-        # Capture Point (where Robby needs to step to come to rest)
-        omega = np.sqrt(9.81 / com[2])
-        capture_point = com[:2] + com_vel[:2] / omega
-        
-        # Check if capture point is inside support polygon
-        # (Simplified: check if it's near the standing foot)
-        support_center = np.array([0.0, 0.0])  # standing foot
-        distance = np.linalg.norm(capture_point - support_center)
-        stability_margin = self.foot_half_length - distance
-        
-        return stability_margin > 0.0, stability_margin
+Ideal QGP:     c_s² = 1/3  →  c_s = 1/√3 ≈ 0.577c
+Near Tc:       c_s² ≈ 0.10–0.15  (softest point of EoS, speed dip)
+```
 
-    def compute_control(self, q, dq, t):
-        """
-        THE MAIN CONTROL LOOP
-        Called every 10ms (100 Hz)
-        Returns torques for every joint
-        """
-        # ─── 1. Compute current ZMP stability ───
-        is_stable, margin = self.check_zmp_stability(q, dq)
-        if not is_stable:
-            # Emergency recovery: place foot at capture point
-            self.emergency_step(q, dq)
-        
-        # ─── 2. Generate desired foot trajectory ───
-        # Determine which foot is swinging
-        step_phase = (t % self.step_duration) / self.step_duration
-        
-        if step_phase < 0.5:
-            # Left foot is in stance, right foot swinging
-            swing_foot_traj = self.compute_foot_trajectory(step_phase * 2)
-        else:
-            # Right foot is in stance, left foot swinging
-            swing_foot_traj = self.compute_foot_trajectory((step_phase - 0.5) * 2)
-        
-        # ─── 3. Inverse Kinematics: joint angles for foot target ───
-        q_desired = self.solve_ik(swing_foot_traj, q)
-        
-        # ─── 4. Inverse Dynamics: torques needed ───
-        # PD Controller (virtual spring-damper)
-        torque = self.kp * (q_desired - q) - self.kd * dq
-        
-        # Add gravity compensation (critical for Robby's heavy torso!)
-        gravity_torque = pin.computeGeneralizedGravity(model, data, q)
-        torque += gravity_torque
-        
-        # ─── 5. QP Solver: respect torque and friction limits ───
-        torque = self.solve_qp_limits(torque)
-        
-        return torque
+The **softening near T_c** creates a characteristic dip in the speed of sound — measured by the shape of collective flow patterns.
 
-    def solve_ik(self, target_foot, q_current):
-        """Iterative inverse kinematics using Pinocchio's Jacobian"""
-        q = q_current.copy()
-        for iteration in range(5):  # 5 iterations is usually enough
-            pin.framesForwardKinematics(model, data, q)
-            current_foot = data.oMf[left_foot_id].translation
-            error = target_foot - current_foot
-            
-            J = pin.computeFrameJacobian(model, data, q, left_foot_id, pin.LOCAL)
-            J_pos = J[:3, :]  # Position part of Jacobian
-            
-            # Damped least-squares (prevents singularity issues)
-            lambda_damping = 0.01
-            dq = J_pos.T @ np.linalg.solve(
-                J_pos @ J_pos.T + lambda_damping * np.eye(3), error
-            )
-            q = pin.integrate(model, q, dq * 0.5)
-        return q
+### 3.3 Debye Screening Mass
 
-    def solve_qp_limits(self, torque):
-        """Constrain torques to motor limits"""
-        torque_max = model.effortLimit
-        return np.clip(torque, -torque_max, torque_max)
+Colour charge is screened in QGP over length scale λ_D:
 
-    def emergency_step(self, q, dq):
-        """Quick recovery if balance is lost"""
-        # Place foot at capture point ASAP
-        print("⚠ Recovery step triggered!")
-        # (Simplified — full implementation would fast-cycle the swing leg)
+```
+m_D² = g²T²·(Nc/3 + Nf/6)
 
-# ============================================================
-# STEP 3: Run the control loop
-# ============================================================
-controller = RobbyController()
-q = pin.neutral(model)   # Start in standing pose
-dq = np.zeros(model.nv) # No initial velocity
-dt = 0.01                # 100 Hz control loop
-
-for t_step in range(1000):  # Run for 10 seconds
-    t = t_step * dt
-    tau = controller.compute_control(q, dq, t)
-    
-    # Integrate one timestep forward (Euler integration)
-    pin.computeAllTerms(model, data, q, dq)
-    M = data.M   # Mass matrix
-    b = data.nle # Coriolis + gravity
-    
-    ddq = np.linalg.solve(M, tau - b)
-    dq = dq + ddq * dt
-    q  = pin.integrate(model, q, dq * dt)
-    
-    # Optional: log data, check stability, render
-    print(f"t={t:.2f}s | COM height={pin.centerOfMass(model, data, q)[2]:.3f}m")
+where:
+  g    = QCD coupling constant (g² = 4π·α_s)
+  Nc   = 3  (number of colours)
+  Nf   = 3  (number of active flavours at LHC T)
+  m_D  ≈ gT ≈ 0.4–1.0 GeV at LHC temperatures
 ```
 
 ---
 
-## Robby-Specific Optimizations (Making His Body Math-Friendly)
+## 4. Bjorken Hydrodynamics
 
-To make the math equations solve faster and Robby's body more controllable:
+### 4.1 Boost-Invariant Longitudinal Expansion
 
-### Body Redesign Principles
+J.D. Bjorken's 1983 model describes the 1+1D longitudinal expansion after a heavy-ion collision, assuming boost invariance in rapidity y.
 
-| Issue in Original Robby | Optimization |
-|---|---|
-| **Top-heavy barrel torso** | Place CoM **lower** — put heavy battery and compute in the hips, not the chest |
-| **Spinning head** | Make the head counter-rotate slightly to act as a **gyro stabilizer** (active balancing) |
-| **Wide, rigid arms** | Make arms lighter and **slightly counter-phased** during walking (passive stabilization) |
-| **Flat, clunky feet** | Use **curved/rocker feet** — they passively roll and dramatically simplify the ZMP math |
-| **Fixed legs (no knee compliance)** | Add **series-elastic actuators** at the knees — they absorb shock and make the dynamics equations better-behaved |
-
-### Optimal Body Ratios for a Walking Robot
+**Proper time and space-time rapidity:**
 
 ```
-Height:    1.0 m    (compact)
-Weight:    15-20 kg (light enough for small motors)
-Legs:      50% of total height (long legs = stable)
-Foot:      30% of leg length (large foot = big ZMP polygon)
-Arms:      As light as possible (reduces swing inertia)
-Torso CoM: Below the navel (lower CoM = easier to balance)
+τ = √(t² - z²)           (proper time)
+η_s = ½·ln[(t+z)/(t-z)]  (space-time rapidity)
+```
+
+**Conservation equation for energy density:**
+
+```
+dε/dτ + (ε + P)/τ = 0
+```
+
+**Solution for ideal QGP (c_s² = 1/3):**
+
+```
+ε(τ) = ε(τ₀)·(τ₀/τ)^(4/3)
+
+T(τ) = T₀·(τ₀/τ)^(1/3)
+
+where:
+  τ₀ ≈ 0.1–0.5 fm/c   (thermalization time)
+  T₀ ≈ 300–600 MeV     (initial temperature at LHC)
+  1 fm/c ≈ 3.3 × 10⁻²⁴ s
+```
+
+### 4.2 Initial Energy Density (Bjorken estimate)
+
+```
+ε(τ₀) = (1/(π·R_A²·τ₀)) · dE_T/dy
+
+where:
+  R_A ≈ 1.2·A^(1/3) fm  (nuclear radius, A=208 for Pb)
+  R_Pb ≈ 6.6 fm
+  dE_T/dy = transverse energy per rapidity unit
+           ≈ 2000 GeV for central Pb-Pb at 5.02 TeV
+
+→ ε₀ ≈ 15–50 GeV/fm³  (≈100–300× normal nuclear density)
+  (value depends on τ₀: τ₀=0.5 fm/c → ε₀≈29 GeV/fm³; τ₀=1.0 fm/c → ε₀≈15 GeV/fm³)
 ```
 
 ---
 
-## The Hybrid (Best of Both Worlds) — And Why You Might Want It
+## 5. The Quark Wake Effect — Mach Cone Formation
 
-Here's a secret: **every modern humanoid robot uses BOTH pure math AND AI**, just in different layers:
+### 5.1 Physical Picture
+
+When a **supersonic** high-energy quark (v ≈ c) punches through the QGP medium (c_s ≈ 0.577c), it deposits energy and momentum via:
+- Collisional scattering with thermal partons
+- Bremsstrahlung (BDMPS gluon radiation)
+
+This creates a **hydrodynamic Mach shock cone** — exactly like a supersonic aircraft or boat wake.
 
 ```
-┌─────────────────────────────────────────────┐
-│  HIGH LEVEL: AI Planner                     │
-│  (LLM/Neural Net)                           │
-│  - "Walk to the kitchen"                    │
-│  - "Pick up the red cup"                    │
-└──────────────────┬──────────────────────────┘
-                   ↓
-┌─────────────────────────────────────────────┐
-│  MID LEVEL: MPC / Trajectory Optimization   │
-│  (Pure Math)                                │
-│  - "Generate smooth footstep path"          │
-│  - "Plan ZMP-safe trajectory"               │
-└──────────────────┬──────────────────────────┘
-                   ↓
-┌─────────────────────────────────────────────┐
-│  LOW LEVEL: Whole-Body Controller           │
-│  (Pure Math QP Solver)                      │
-│  - "Send exact torques at 1000 Hz"          │
-│  - "Respect motor limits and friction"      │
-└─────────────────────────────────────────────┘
+          Quark path ──────────────────────►
+                    \  ╲                 /
+                θ_M  \  ╲             /   ← Mach cone
+                      \  ╲         /       shock front
+                       \  ╲     /
+                        \  ╲ /
+                         wake ripple deposited
+                         in QGP medium
 ```
 
-**The math handles real-time balance. The AI handles task planning and adaptation to new situations.**
+### 5.2 Mach Cone Angle
+
+```
+cos(θ_M) = c_s / v_parton
+
+For v_parton ≈ c (ultra-relativistic quark):
+  cos(θ_M) = c_s/c = 1/√3
+
+  θ_M = arccos(1/√3) ≈ 54.7°   (ideal QGP)
+
+Near Tc where c_s is reduced:
+  c_s ≈ 0.33c  →  θ_M ≈ arccos(0.33) ≈ 70.7°
+```
+
+### 5.3 Hydrodynamic Source Term
+
+The energy-momentum deposited by the quark sources the fluid equations:
+
+```
+∂_μ T^μν = J^ν(x)
+
+where J^ν is the source 4-current from the passing parton.
+
+The linearized perturbation δε, δu in the fluid creates:
+  - Mach shock waves at angle θ_M
+  - A diffusion wake on the Cherenkov-like cone
+```
+
+### 5.4 Observable: Azimuthal Correlation Double Hump
+
+The Mach cone manifests as a **double-hump** in particle azimuthal angle correlations:
+
+```
+Peak 1: Δφ = π + θ_M  (left horn of cone)
+Peak 2: Δφ = π - θ_M  (right horn of cone)
+
+For ideal QGP: peaks at π ± 54.7° = 124.7° and 235.3°
+```
+
+The 2026 CMS experiment observed this signature by subtracting background flow with Z-boson tagging.
 
 ---
 
-## Comparison: Pure Math vs AI vs Hybrid
+## 6. Jet Quenching: BDMPS Radiative Energy Loss
 
-| Aspect | Pure MPC Math | Pure AI (RL) | Hybrid (Math + AI) |
-|---|---|---|---|
-| **Setup time** | Days | Weeks of GPU training | Weeks |
-| **Real-time CPU load** | Heavy (QP every ms) | Tiny (just NN forward pass) | Medium |
-| **Guaranteed balance** | ✅ Mathematically provable | ❌ Can fail on weird inputs | ✅ Math-provable core |
-| **Handles new terrain** | ❌ Struggles | ✅ Excellent | ✅ Excellent |
-| **Handles being pushed** | ⚠ With recovery controllers | ✅ Excellent | ✅ Excellent |
-| **Power efficiency** | ✅ Can be optimized | ⚠ Often redundant motions | ✅ Best |
-| **Predictable** | ✅ Every motion is reproducible | ❌ Stochastic | ✅ Mostly reproducible |
+### 6.1 The BDMPS-Z Formalism
+
+Baier-Dokshitzer-Mueller-Peigné-Schiff (BDMPS) describes induced gluon bremsstrahlung when a quark traverses a QCD medium. Multiple soft scatterings cause quantum interference (LPM effect), suppressing radiation at low ω.
+
+### 6.2 Transport Coefficient q̂
+
+The key medium property — transverse momentum squared acquired per unit path length:
+
+```
+q̂ = ⟨p_T²⟩ / L        [GeV²/fm]
+
+Estimated values:
+  q̂ ≈ 1–3 GeV²/fm  at RHIC (√s_NN = 200 GeV)
+  q̂ ≈ 3–10 GeV²/fm  at LHC (√s_NN = 2.76–5.02 TeV)
+```
+
+### 6.3 Characteristic Gluon Energy (LPM cutoff)
+
+```
+ω_c = ½·q̂·L²
+
+where:
+  L ≈ 5–8 fm   (typical medium path length in central Pb-Pb)
+  → ω_c ≈ 10–50 GeV
+```
+
+### 6.4 Average Radiative Energy Loss
+
+```
+⟨ΔE⟩_rad = (α_s·C_R/2)·q̂·L²  =  α_s·C_R·ω_c
+
+Full differential spectrum:
+  dI/dω ∝ α_s·C_R·(1/ω)·√(q̂/ω)   for ω < ω_c
+
+Differential energy loss:
+  dE/dx|_rad ≈ (α_s·C_R·q̂/2)·ln(E/ω_c)
+
+where:
+  α_s ≈ 0.3        (strong coupling at ~10 GeV scale)
+  C_R = C_F = 4/3  (quark Casimir)
+  C_R = C_A = 3    (gluon Casimir)
+  L               = medium path length [fm]
+  E               = parton energy [GeV]
+```
+
+**Numerical estimate for a 100 GeV quark, L = 5 fm:**
+```
+ω_c ≈ ½ × 5 × 25 = 62.5 GeV  (using q̂ = 5 GeV²/fm)
+⟨ΔE⟩ ≈ 0.3 × (4/3) × 62.5 ≈ 25 GeV  (25% energy loss!)
+```
 
 ---
 
-## My Recommendation for Robby
+## 7. Collisional Energy Loss
 
-**Go with Pure Mathematical Control (MPC) for v1.** Here's why:
+Elastic scattering of the hard quark off thermal partons also contributes:
 
-1. **Faster to deploy** — no GPU training cluster needed
-2. **More reliable** — Robby is heavy and bulky, you don't want him falling and breaking
-3. **More "in character"** — Robby's original film movements were pre-programmed mechanical motions, not learned AI behaviors
-4. **Easier to debug** — you can see exactly which equation is causing an issue
-5. **You can add AI later** — start with pure math, layer in RL only for specific skills (like "learn to walk on sand")
+```
+dE/dx|_coll = (4π·α_s²·T²/3v²)·C_R·[ln(E·T/m_D²) + const]
 
-### Suggested Learning Path
+where:
+  T   = local medium temperature [GeV]
+  v   ≈ c  (ultra-relativistic parton)
+  m_D ≈ gT  (Debye screening mass, colour-electric screening)
 
-1. **Week 1-2:** Install Drake or Pinocchio, load a simple stick figure, get it standing still under gravity compensation
-2. **Week 3-4:** Add ZMP-based balance controller, get it to stand while being pushed
-3. **Week 5-6:** Add foot trajectory generation, get first walking steps
-4. **Week 7-8:** Add the Robby-specific elements (counter-rotating head, swinging arms, chest displays)
-5. **Week 9+:** Fine-tune, then optionally add a small RL policy for rough terrain adaptation
+Numerical estimate (T = 300 MeV, α_s = 0.3, C_R = 4/3):
+  dE/dx|_coll ≈ 0.3–1.0 GeV/fm
+
+Compare to radiative:
+  dE/dx|_rad ≈ 2–5 GeV/fm  (dominant at high pT)
+```
+
+**Total energy loss:**
+```
+dE/dx|_total = dE/dx|_rad + dE/dx|_coll
+```
+
+The ratio radiative/collisional ≈ 2:1 to 5:1 for quark pT > 10 GeV.
 
 ---
 
-## Ready to Start Coding?
+## 8. The Perfect Liquid: KSS Viscosity Bound
 
+### 8.1 Kovtun-Son-Starinets (KSS) Bound
 
-	
+From AdS/CFT duality (string theory / holography), the minimum shear viscosity to entropy ratio is:
+
+```
+η/s ≥ ℏ/(4π·k_B) ≈ 6.08 × 10⁻²⁵ J·s/m³ / (J/K/m³)
+                   ≈ 0.08  (in natural units where ℏ = k_B = 1)
+```
+
+### 8.2 Why QGP Is a "Near-Perfect" Fluid
+
+QGP measurements at RHIC and LHC give:
+
+```
+η/s|_QGP ≈ 0.08–0.24  (just 1–3× the KSS bound)
+
+Compare:
+  Water at 20°C:    η/s ≈ 380 × ℏ/4πk_B  (not perfect at all)
+  Superfluid ⁴He:   η/s ≈ 8 × ℏ/4πk_B
+  QGP:              η/s ≈ 1–3 × ℏ/4πk_B  ← closest to perfect known
+```
+
+### 8.3 Why This Matters for the Wake
+
+A fluid with small η/s:
+- Transmits pressure waves with **minimal damping**
+- Preserves Mach cone structure over fm-scale distances
+- Creates sharp, observable double-hump correlation signal
+
+High viscosity would **smear out** the wake and make it undetectable.
+
+### 8.4 Viscous Correction to Pressure Waves
+
+The attenuation length for Mach waves:
+
+```
+λ_att = 2·τ_s·(1/k)
+
+where τ_s = η/(ε+P) = (η/s)/T  is the viscous relaxation time
+
+For η/s = 1/(4π):
+  τ_s = (η/s)/T = (1/4π)/0.300 GeV⁻¹ × ℏc = 0.052 fm/c  at T = 300 MeV
+```
+
+---
+
+## 9. The Z Boson Tagging Technique
+
+### 9.1 Why the Z Boson Is Perfect
+
+The Z boson (mass M_Z = 91.2 GeV) is a **colour-neutral** gauge boson that couples only via the electroweak force. It is therefore completely **transparent to QGP** — the strong force has no effect on it.
+
+```
+Z boson properties:
+  Mass:      M_Z = 91.187 ± 0.002 GeV
+  Width:     Γ_Z = 2.495 GeV  (τ ≈ 3×10⁻²⁵ s)
+  Decay:     Z → e⁺e⁻ or Z → μ⁺μ⁻  (cleanly detected!)
+  Lifetime:  τ_Z = ℏ/Γ_Z = 6.58×10⁻²⁵/2.495 ≈ 2.64×10⁻²⁵ s
+  Couples:   via electroweak force ONLY
+  Strong:    does NOT feel QCD → escapes QGP untouched ✓
+```
+
+### 9.2 The Tagging Method
+
+```
+Pb-Pb collision:
+  ├─ Z boson  ──────────────────────► escapes untouched
+  │  (pT_Z, φ_Z = known precisely)
+  │
+  └─ recoil quark ──► enters QGP ──► loses energy via BDMPS
+                                    └─► leaves as jet (pT_jet < pT_quark)
+
+Conservation of momentum (before QGP):
+  pT_quark_initial = pT_Z  (balanced in pp collision)
+  φ_quark_initial  = φ_Z + π  (back-to-back)
+```
+
+### 9.3 Energy Imbalance Observable
+
+```
+x_jZ = pT_jet / pT_Z
+
+In pp (no QGP):     ⟨x_jZ⟩ ≈ 1.0  (balanced)
+In Pb-Pb (with QGP): ⟨x_jZ⟩ < 1.0  (jet loses energy to QGP wake)
+
+The shift: Δx_jZ = 1 - ⟨x_jZ⟩_PbPb ∝ ⟨ΔE⟩/pT_Z
+```
+
+### 9.4 Missing Energy Distribution
+
+The "lost" energy reappears as soft particles in the **wake region**:
+
+```
+ΔpT = pT_Z - pT_jet  ≈ ⟨ΔE⟩_BDMPS
+
+CMS 2026 observation: The missing pT is found in soft particles
+at Δφ ≈ π ± θ_M (the Mach cone double hump)  ← direct wake signature
+```
+
+---
+
+## 10. Two-Particle Correlations and Azimuthal Harmonics
+
+### 10.1 Two-Particle Correlation Function
+
+```
+C(Δη, Δφ) = (1/N_trig) · dN_pairs / (dΔη · dΔφ)
+
+where:
+  Δη = η₁ - η₂  (pseudorapidity difference)
+  Δφ = φ₁ - φ₂  (azimuthal angle difference)
+```
+
+### 10.2 Fourier Decomposition (Flow Harmonics)
+
+The azimuthal particle distribution relative to the event plane Ψ_n:
+
+```
+dN/dφ ∝ 1 + 2·Σ_n v_n · cos[n·(φ - Ψ_n)]
+
+Coefficients:
+  v₁ = directed flow     (sidewards push from pressure gradient)
+  v₂ = elliptic flow     (almond-shaped initial geometry → oval flow)
+  v₃ = triangular flow   (initial geometry fluctuations)
+  v₄, v₅, ...           (higher harmonics)
+
+v₂ at LHC:  v₂ ≈ 0.05–0.15  (depends on centrality)
+```
+
+### 10.3 Wake Signature in Azimuthal Correlations
+
+After subtracting collective background flow:
+
+```
+Remaining signal at Δφ ≈ π ± θ_M:
+
+  Near side (Δφ ≈ 0):   jet fragmentation peak
+  Away side (Δφ ≈ π):   modified by QGP absorption + Mach cone split
+
+Double-hump structure:
+  Peak at Δφ = π - θ_M  ≈ 125°
+  Dip    at Δφ = π       ≈ 180°  (absorbed by medium)
+  Peak at Δφ = π + θ_M  ≈ 235°
+```
+
+---
+
+## 11. Cooper-Frye Freeze-out
+
+When the QGP cools to T_fo ≈ 150–160 MeV, quarks and gluons recombine into hadrons (**hadronization**). The observable particle spectrum on the freeze-out hypersurface Σ is:
+
+```
+E · dN/d³p = g/(2π)³ · ∫_Σ p^μ · dσ_μ · f(p·u/T_fo)
+
+where:
+  g       = degeneracy factor
+  dσ_μ   = hypersurface normal vector element
+  u^μ    = local fluid 4-velocity (includes wake contribution!)
+  T_fo   = freeze-out temperature ≈ 150–160 MeV
+  f(·)   = Bose-Einstein or Fermi-Dirac distribution
+
+For a Mach wake: u^μ has an angular structure → 
+  cos(θ_M) imprinted in dN/dφ  ← the measurement!
+```
+
+The **Cooper-Frye formula converts the hydrodynamic Mach wave into the observable particle angular distribution**.
+
+---
+
+## 12. Color Glass Condensate Initial State
+
+Before the QGP forms, the colliding nuclei are described by the **Color Glass Condensate (CGC)** — a saturated state of gluons in ultra-relativistic nuclei.
+
+### 12.1 Saturation Scale
+
+```
+Q_s²(x, A) = (4π²·α_s·N_c)/(N_c²-1) · xG(x, Q_s²) / (π·R_A²)
+
+Numerically for Pb at LHC (x ~ 10⁻³):
+  Q_s ≈ 1.5–2.5 GeV
+
+where:
+  x      = momentum fraction of struck gluon
+  xG(x,Q²) = gluon distribution function
+  R_A    = nuclear radius
+  N_c    = 3 (number of colours)
+```
+
+### 12.2 Role in Wake Measurement
+
+The CGC sets:
+- **Initial gluon density** → determines energy available for QGP
+- **Initial state fluctuations** → seed v₂, v₃, v₄ background flow
+- **Hard scattering rate** → determines Z+jet pair production rate
+
+The CMS analysis subtracts the initial-state CGC contribution to isolate the final-state QGP wake signal.
+
+---
+
+## 13. What Was Measured: Observables
+
+### 13.1 The 2026 CMS Measurement
+
+The key observable was the **azimuthal angle distribution of soft particles recoiling against the Z-boson-tagged jet**, in central Pb-Pb vs. pp collisions:
+
+```
+Signal = [dN/dΔφ]_PbPb - [dN/dΔφ]_pp
+
+Expected in ideal QGP:  Double hump at Δφ = π ± 54.7°
+Observed:               Double hump consistent with c_s ≈ 0.57c
+                        → confirms near-perfect fluid behaviour
+```
+
+### 13.2 Nuclear Modification Factor
+
+Jet suppression relative to pp:
+
+```
+R_AA = (dN_AA/dp_T) / (T_AA · dσ_pp/dp_T)
+
+where T_AA = ∫ρ_A(r)·ρ_B(r) d²r  (nuclear overlap function)
+
+In absence of QGP: R_AA = 1
+Observed at LHC:   R_AA ≈ 0.2–0.5  for jets with pT > 100 GeV
+→ 50–80% of jet energy absorbed by QGP
+```
+
+### 13.3 Summary of Key Numbers
+
+| Quantity | Value | Meaning |
+|----------|-------|---------|
+| T_c | 155 MeV | QGP formation temperature |
+| T_initial (LHC) | 300–600 MeV | Initial QGP temperature |
+| c_s (ideal QGP) | 1/√3 ≈ 0.577c | Speed of sound |
+| θ_M (ideal QGP) | 54.7° | Mach cone angle |
+| η/s (QGP) | ~0.08–0.24 | Near-KSS bound |
+| KSS bound | ℏ/(4πk_B) | Minimum possible η/s |
+| q̂ (LHC) | 3–10 GeV²/fm | Jet transport coefficient |
+| M_Z | 91.2 GeV | Z boson mass |
+| ⟨ΔE⟩ | ~25 GeV | Jet energy loss in QGP |
+| R_AA (jets) | 0.2–0.5 | Jet nuclear suppression |
+
+---
+
+## 14. How Everything Connects
+
+```
+CGC Initial State
+    │ Q_s sets initial gluon density
+    ▼
+Pb+Pb Collision  [√s_NN = 5.02 TeV]
+    │ τ₀ ~ 0.1 fm/c
+    ▼
+QGP Formation  [T₀ ~ 400 MeV, ε₀ ~ 15 GeV/fm³]
+    │ Bjorken expansion: T(τ) = T₀·(τ₀/τ)^(1/3)
+    │
+    ├─── Z boson produced + recoil quark
+    │     │                   │
+    │     │ Escapes (no QCD)  │ Enters QGP
+    │     ▼                   ▼
+    │   [Clean reference]  BDMPS energy loss ΔE
+    │   pT_Z known         dE/dx = (α_s·C_R·q̂)·ln(E/ω_c)
+    │                      + collisional loss
+    │                           │
+    │                      Mach wake deposited
+    │                      at angle θ_M = arccos(c_s/c)
+    │                           │
+    ▼                           ▼
+Hydrodynamic evolution [η/s ~ 1/(4π)]  ← perfect fluid
+    │ Navier-Stokes + relativistic viscous hydro
+    ▼
+Cooper-Frye Freeze-out [T_fo ~ 155 MeV]
+    │ p^μ·dσ_μ → observable hadrons
+    ▼
+CMS Detector Measurement
+    │
+    ├─ Mach double-hump in Δφ  ← 2026 BREAKTHROUGH
+    ├─ x_jZ = pT_jet/pT_Z < 1  (energy imbalance)
+    └─ R_AA < 1                 (jet suppression)
+```
+
+---
+
+## 15. Python Simulation Programs
+
+Run the Python programs in this directory to visualize the mathematics:
+
+| Program | What It Shows |
+|---------|--------------|
+| `qgp_thermodynamics.py` | QGP EoS, T(τ) Bjorken cooling, speed of sound |
+| `mach_cone_simulation.py` | Mach cone geometry, wake pattern, double-hump |
+| `jet_quenching.py` | BDMPS energy loss vs pT, L, q̂ |
+| `viscosity_kss.py` | η/s comparison: QGP vs other fluids |
+| `z_boson_tagging.py` | x_jZ imbalance distributions pp vs Pb-Pb |
+| `azimuthal_correlations.py` | Two-particle Δφ correlations with Mach cone signal |
+
+Run all: `python3 <program>.py` — each saves PNG graphs to `./plots/`
+
+---
+
+## 16. Scientific References
+
+| # | Source |
+|---|--------|
+| [1] | CERN CMS Experiment — [Wake of Partons](https://cms.cern/news/wake-partons) |
+| [2] | Gizmodo — [Baby Universe Primordial Soup](https://gizmodo.com/the-baby-universe-really-was-a-goopy-soup-research-suggests-2000716678) |
+| [3] | MIT Physics News — [Primordial Soup Study](https://physics.mit.edu/news/study-the-infant-universes-primordial-soup-was-actually-soupy/) |
+| [4] | Tech Explorist — [Early Universe Hot Soupy](https://www.techexplorist.com/early-universe-just-hot-soupy/101962/) |
+| [5] | Space.com — [LHC Primordial Soup](https://www.space.com/science/particle-physics/large-hadron-collider-reveals-primordial-soup-of-the-early-universe-was-surprisingly-soupy) |
+| [6] | Physics Letters B — [Peer-reviewed journal](https://www.sciencedirect.com/journal/physics-letters-b) |
+| [7] | Discover Magazine — [First Direct Evidence](https://www.discovermagazine.com/physicists-find-the-first-direct-evidence-that-the-universe-s-primordial-soup-behaved-like-a-liquid-48609) |
+| [8] | Bjorken, J.D. (1983) — Phys. Rev. D **27**, 140 — Original Bjorken flow paper |
+| [9] | Baier et al. (1997) — Nucl. Phys. B **484**, 265 — BDMPS formalism |
+| [10] | Kovtun, Son, Starinets (2005) — Phys. Rev. Lett. **94**, 111601 — KSS bound |
+| [11] | Casalderrey-Solana & Teaney (2006) — Phys. Rev. D **74**, 085012 — Mach cone in QGP |
+| [12] | McLerran & Venugopalan (1994) — Phys. Rev. D **49**, 2233 — Color Glass Condensate |
+
+---
+
+*Analysis compiled from: CERN CMS (2026), Grok-4, DeepSeek-chat, and cross-referenced with primary QCD literature.*
