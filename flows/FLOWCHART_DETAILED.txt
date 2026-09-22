@@ -1,0 +1,131 @@
+CEREBRA-NEXUS DETAILED LAYERED FLOW WITH TIMING & BUSES  ~/cerebra-nexus/flows/FLOWCHART_DETAILED.txt
+═══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+Refs: EchoMind/echo_mind.py:17  kernel.py:27  gpu_brain2/brain_core.py:1  memR/*.m  brain2qwerty/  jeannie/
+
+TIMING CONSTANTS (from code)
+- Reservoir hop 64 @16kHz = 4ms per step_encoded()                 EchoMind:145
+- Reservoir tick 0.1 scale on Mackey-Glass                         EchoMind:86
+- Field runner hz=10-20 period 50-100ms checkpoint 30s             kernel.py:435-453
+- Sheet settle 100 steps + reply_len 16 per interact_once          BRAIN:325,350
+- STFT n_fft256 ~16ms window                                       EchoMind:145
+- Fabric DC 10-100ms/weight  AC 1-10kHz (ω>>ω0 10-100×)             memR/CLAUDE.md
+- Novelty cooldown 20 steps replay                                 EchoMind:68
+- Homeostasis 0.0004 target 0.035                                  kernel.py:60
+- Growth spawn per assembly constant                               growth.py
+
+BUS WIDTHS & BOUNDS
+- pulse[N] float64 [-1,1] sparse ~30%                              EchoMind:171
+- NeuralStimulus concepts≤24 strength≤0.55                         kernel.py:114
+- Field potentials float32 thresholds [0.60,1.80]                   kernel.py:186
+- Sheet logits [8192] vocab                                        BRAIN:140
+- Weights exc [0.001,0.22] inh [-0.22,-0.001]                       kernel.py:180
+
+
+┌──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│ L1 SENSING  — concurrent producers, all -> L2 encoders                                                                                 polling / event         │
+│                                                                                                                                                              │
+│  mic ──(PCM 16k 16000*2 bytes/s)──► STFT front  ─┐                                                                                   4ms hop                   │
+│  meg ──(MEG 306ch @1kHz)──────────► brain2qwerty V1 pl_module  ─┼─► [concepts]                                                    100ms block                  │
+│  text ──(UTF-8 stdin/TUI)────────► char-emb 0xCAFE ─┤                                                                               per line                      │
+│  hr  ──(BLE GATT 1Hz)────────────► neuro-vector 0xBEEF ─┘                                                                              1s                         │
+│  wiki/file ──(HTTP/FS)──────────► concept extract stop-filter ─┘                                                                      on demand                   │
+└──────────────────────────────────────────┬───────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+                                           │ pulse[N] / concepts (bounded, deterministic)
+                                           ▼
+┌──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│ L2 ENCODERS  — hash-stable, no training                                                                                                                  │
+│                                                                                                                                                              │
+│  ┌───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐                                 │
+│  │ STFT  Hann*frame -> rfft -> mag=log1p|spec|  phase=angle  phase_wrap=(phase/π+1)/2  combined=mag*phase_wrap  EchoMind:154-159 │                   │
+│  │   -> mean frames -> /max -> threshold 70pct -> pulse=sign where >thr else 0  -> zero-pad/resize to N  EchoMind:165-173        │                   │
+│  └───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘                                 │
+│  ┌───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐                                 │
+│  │ TEXT  char_emb[128,32]*0.4  -> agg=mean(embs) + len/max_len*0.5 + diversity*0.5  -> tanh(N×32 0.25 · agg)  EchoMind:196-209    │                   │
+│  └───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘                                 │
+│  ┌───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐                                 │
+│  │ NEURO  rng 0xBEEF N×5*0.2 -> tanh(proj·[arousal..curiosity])  EchoMind:183-187                                                  │                   │
+│  └───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘                                 │
+│  ┌───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐                                 │
+│  │ HASH  assembly=sort(choice(N,24, seed=blake2b(salt+concept)))  concepts.py:33  note_activation 0.88decay 0.995  dominant 0.65overlap+0.35score │   │
+│  └───────────────────────────────────────────────────────────────────────────┬───────────────────────────────────────────┘                                 │
+│                                                                              │ NeuralStimulus                                                                  │
+└──────────────────────────────────────────────────────────────────────────────┼───────────────────────────────────────────────────────────────────────────────┘
+                                                                               ▼
+┌──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│ L3 RESERVOIR — EchoMind (N=256)   temporal kernel, RLS online                                                                                                │
+│   r ← tanh(W·tanh(r) + pulse[:N])  EchoMind:98   or   scalar step() EchoMind:81                                                                            │
+│   y = W_out·r  EchoMind:102                                                                                                                                  │
+│   e = target - y; g = P·r/(1+r·P·r); W_out+=outer(e,g); P-=outer(g,P·r)  EchoMind:114-117                                                                  │
+│   err=mean|e| -> median50 -> novelty=err/(median+1e-9) -> if >2.5 & cooldown0 -> replay + events[200]  EchoMind:129-139                                    │
+│   entropy histogram16  EchoMind:408   snapshot tick/pred_error/novelty/replay/entropy EchoMind:415                                                         │
+│                                                                                                                                                              │
+│   tick rate: ~250 ticks/s (4ms)   RLS O(N²)=256²=65k flops/step   CPU only   NO GPU                                                                        │
+└──────────────────────────────────────────┬───────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+                                           │ r[N]=tanh bounded + snapshot + novelty pulse
+                                           ▼
+┌──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│ L4 FIELD — Jeannie Kernel (n≈2048→growth)   recurrent LIF with geometry/plasticity                                                                          │
+│   penetrate: pending[assembly]+=strength*(0.55+0.45*salience)*gain  kernel.py:122                                                                           │
+│   step_once: recurrent Σ W·STP·inhib_scale LEAK 0.93 + pending + noise - adaptation  thresholds homeostasis  kernel.py:136-186                              │
+│   plasticity: traces + BCM delta clip  plasticity.py   rate_ema 0.995  thresholds 0.0004*(ema-0.035)  kernel.py:184                                        │
+│   geometry: 3D positions uniform [0,1] -> centroid spawn spread 0.08  geometry.py:17  clusters -> growth  kernel.py:193-202                               │
+│   output: FieldSnapshot + heatmap 64 cols values→round4 + cell_types + spikes  kernel.py:293                                                               │
+│                                                                                                                                                              │
+│   tick rate: 10-20 Hz runner  kernel.py:435   step_count++  kernel.py:190   checkpoint 30s STATE_V4  kernel.py:340                                           │
+└──────────────────────────────────────────┬───────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+                                           │ FieldSnapshot firing_rate/overload/underactivity/dominant_concepts
+                          ┌────────────────┴────────────────┐
+                          ▼                                 │ (also direct stimul path bypass reservoir for text HR)
+┌──────────────────────────────────────────────────────────┐  │
+│ L5 SHEET — gpu_brain2 (GRID 200=40k)  spatial LIF sheet │  │
+│  layout 2D grid -> patches 50×50 TL input BR output    │  │
+│  encode: token→seed->choice 10 neurons BLOB5 +=1.5  BRAIN:248│ │
+│  step: syn ΣW·pre + neigh 8×roll 0.01 + attractor 0.05 + bias+drive -0.15*global + noise 0.03  BRAIN:184-204    │  │
+│  adapt: firing_avg 0.05*spike + thresholds clip [0.5,3.0] BRAIN:211                                           │  │
+│  elig *=0.95 +=0.1*post*pre -> reward 0.001*elig BRAIN:217 + decay 0.9995 clip [-1,1] BRAIN:227                │  │
+│  readout: x[out_patch] logits=x·W+b[8192] temp0.5 sample BRAIN:260  train sparse only x>0 BRAIN:295            │  │
+│  router: Hybrid→Facts→Smart→GPU super_brain.py:32 distill->W_out                                            │  │
+│                                                         │  │
+│  tick rate: settle 100 + reply 16 steps per interact    │  │
+│  GPU: cupy else fallback to Field CPU                   │  │
+└──────────────────────────┬───────────────────────────────┘  │
+                           │ tokens + heatmap                  │
+                           └──────────────┬────────────────────┘
+                                          ▼
+┌──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│ L6 COGNITIVE SHELL — codec + memory + control                                                                                                                │
+│                                                                                                                                                              │
+│  LLM codec: Ollama qwen3.5:9b propose -> supervisor gate -> commit    jeannie/llm/*                                                                         │
+│  Memory: SQLite WAL FTS5 score = relevance*importance*recency*salience   jeannie/memory/*                                                                   │
+│  Drives: arousal/attention/reward/surprise/curiosity -> neuro-vector -> neuromod gain                       EchoMind:175                                    │
+│  Prediction: expected valence vs actual -> error -> DA/NE pulse  kernel.py:124                                                                              │
+│  Safety: allowlist actions registry.py no shell  dampen 0.85 pending*0.2 thresholds+0.03  kernel.py:334                                                    │
+│  API: fastapi localhost :8080 + textual TUI + typer cli  jeannie/api+cli                                                                                    │
+│                                                                                                                                                              │
+│  latency: LLM 200-800ms dominates  muscle layers <50ms total                                                                                                 │
+└──────────────────────────────────────────┬───────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+                                           │ committed text / actions / metrics
+                                           ▼
+┌──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│ L7 OUTPUT & PERSISTENCE                                                                                                                                      │
+│  TUI 3-pane textual  menu 20% | heatmap 64cols | input 20%  tui.py                                                                                          │
+│  REST localhost + web/app.css/js  jeannie/api/web                                                                                                           │
+│  Checkpoints: neural_state.npz STATE_V4 kernel.py:340 + brain_paths.npz 6.4M + SQLite WAL                                                                    │
+│  HW bus: OUT 0x10 MUX OUT 0x11 WRITE IN 0x12 ADC  Arduino piezo $2 thermo $30-50  memR                                                                      │
+│  Metrics: entropy reservoir, firing_rate field/sheet, novelty rate, CER MEG, MAE RLS, latency/power                                                        │
+└──────────────────────────────────────────┬───────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+                                           │
+                                           └────────► WORLD + FEEDBACK ──► valence -> neuromod DA/NE + reward -> eligibility  BRAIN:98  + neuro-vector arousal
+
+┌──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│ L0 FABRIC — orthogonal, underlies L3-L5 with same port abstraction                                                                                          │
+│  SIM: lissajous_logic_gates.m train φ 500 epochs  lissajous_neural m 368 lines  hardware_design.m 428 lines FDM 1-4kHz FFT                                   │
+│  REAL: RC BPF f0=1/(2π√RC) envelope diode+C  PLL  memR README  +  MZI 1550nm fiber couplers 50:50 PD InGaAs  1ns inference  Level4                            │
+│  Z80: memristor_interface.asm SELECT OUT(MUX) PROGRAM OUT(WRITE) RUN READ IN(ADC)  same for piezo heater WDM  memR/CLAUDE.md                                  │
+│  CAPACITY: 1 wire × (360° φ 8-bit 256 × A 256 × f 50 × coupling 4) =13M states  memR README:705  vs binary 1 bit                                           │
+└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+DATA VOLUME EXAMPLE (one second of operation)
+- mic 16k samples -> 250 hops -> 250 pulse[N=256] -> 250*256*8=512kB -> reservoir 250 steps 250*65k=16M flops -> field 10 steps 10*2048*10=200k edges
+- MEG 1s 306*1000*4=1.2MB -> brain2qwerty infer 50ms -> concepts 12 -> field pending 12*24=288 writes
+- Total CPU <100ms/s on modern x86, GPU sheet +40ms, fiber infer <1us (fabric only)

@@ -1,0 +1,161 @@
+CEREBRA-NEXUS COMPLETE SYSTEM FLOW — ~/cerebra-nexus/flows/FLOWCHART.txt
+═══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+Refs: EchoMind/echo_mind.py:17  jeannie/neural/kernel.py:27  gpu_brain2/brain_core.py:1  memR/CLAUDE.md  brain2qwerty/brain2qwerty_v2/
+
+ ┌─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+ │                                                                  INPUT UNIVERSE                                                                        │
+ │  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐                                                            │
+ │  │  MIC     │  │  MEG     │  │  TEXT    │  │  HR/BLE  │  │  WIKI    │  │  FILE    │                                                            │
+ │  │  16kHz   │  │ brain2qw │  │  UTF-8   │  │ polar_h10│  │ auto_learn│ │ workspace│                                                            │
+ │  │ PCM      │  │ SpanishBCBL│ │ CLI/TUI │  │ hr_stream│  │ scrape    │ │ .md/.py  │                                                            │
+ │  └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘                                                            │
+ └───────┼─────────────┼─────────────┼─────────────┼─────────────┼─────────────┼──────────────────────────────────────────────────────────────────┘
+         │             │             │             │             │             │
+         │             │             │             │             │             │
+         ▼             ▼             ▼             ▼             ▼             ▼
+ ┌─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+ │                                                             L2 — PHASE ENCODERS (Deterministic, hash-stable)                                           │
+ │                                                                                                                                                          │
+ │   ┌──────────────────────────────┐   ┌──────────────────────────────┐   ┌──────────────────────────────┐   ┌──────────────────────────────┐            │
+ │   │  STFT ENCODER                │   │  TEXT ENCODER                │   │  NEURO-VECTOR                │   │  CONCEPT HASH                │            │
+ │   │  EchoMind:145                │   │  EchoMind:189                │   │  EchoMind:175                │   │  concepts.py:33              │            │
+ │   │  Hann256 hop64 rfft          │   │  128×32 emb 0xCAFE           │   │  N×5 proj 0xBEEF              │   │  blake2b(salt+concept)       │            │
+ │   │  mag=log1p|spec|             │   │  mean-pool chars[:64]        │   │  [arousal,attention,          │   │  assembly[24] per concept    │            │
+ │   │  phase_wrap=angle/π+1/2      │   │  +len/set features           │   │   reward,surprise,            │   │  stable across restarts      │            │
+ │   │  combined=mag*phase_wrap     │   │  tanh(N×D · agg)             │   │   curiosity] -> tanh         │   │                              │            │
+ │   │  aggr=mean(frames) /max      │   │  sparse via tanh             │   │                              │   │  extract() stop-filter       │            │
+ │   │  pulse=sign where >70th pct  │   │                              │   │  HR->arousal                 │   │  _STOP jeannie/concepts     │            │
+ │   │  -> pulse[N] [-1,1]          │   │  -> text_vec[N]              │   │  -> neuro_vec[N]             │   │  note_activation() score     │            │
+ │   └──────────────┬───────────────┘   └──────────────┬───────────────┘   └──────────────┬───────────────┘   └──────────────┬───────────────┘            │
+ │                  │                                  │                                  │                                  │                             │
+ │                  └──────────────────┬─────────────────┴──────────────────┬─────────────────┴──────────────────┬─────────────────┘                             │
+ │                                     ▼                                  ▼                                  ▼                                               │
+ │                           ┌──────────────────────────────────────────────────────────────────────────────┐                                                │
+ │                           │              UNIFIED PULSE BUS  pulse[N]  bounded [-1,1] sparse ~30%        │                                                │
+ │                           │              also -> NeuralStimulus(concepts≤24, strength≤0.55, salience, valence) kernel.py:113  │                         │
+ │                           └────────────────────────────────────┬─────────────────────────────────────────┘                                                │
+ └────────────────────────────────────────────────────────────────┼──────────────────────────────────────────────────────────────────────────────────────────┘
+                                                                  │
+                                                                  ▼
+ ┌─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+ │                                                            L3 — RESERVOIR (EchoMind)  256D temporal memory                                               │
+ │                                                                                                                                                          │
+ │   State: r[N] W[N,N] 5% rho0.99 W_in[N] W_out[n_out,N] P[N,N]=1e3I  tick  err_history[50]  novelty  replay  entropy                                     │
+ │                                                                                                                                                          │
+ │   ┌──────────────────────────────────────────────────────────────────────────────────────────────────────┐                                               │
+ │   │  step(u):  x_tau=r[-17]; dx=0.2*x_tau/(1+x^10)-0.1*r[0]; r=roll(r,-1); r[-1]+=dx*0.1;            │                                               │
+ │   │            r+=u*(W@tanh(r))+u*W_in; r=tanh(r); tick++  EchoMind:81                               │                                               │
+ │   │  step_encoded(sig): r=tanh(W@tanh(r)+sig[:N])  EchoMind:92                                         │                                               │
+ │   │  predict(r): y=W_out·r  EchoMind:102                                                               │                                               │
+ │   │  train_step(r,target): y=W_out·r; e=t-y; P_r=P·r; g=P_r/(1+r·P_r); W_out+=outer(e,g); P-=outer(g,P_r) EchoMind:106  │                               │
+ │   │  novelty: median(last50) -> novelty=err/(median+1e-9) >2.5 & cooldown20 -> NoveltyEvent+callback  EchoMind:128-139 │                               │
+ │   │  entropy: histogram 16 bins [-1,1] -> -sum(p log2 p)  EchoMind:408                                │                                               │
+ │   └──────────────────────────────┬───────────────────────────────────────────────────────────────────────┘                                               │
+ │                                  │  r[N] (+ snapshot {tick,pred_error,novelty,replay,entropy} EchoMind:415)                                           │
+ └──────────────────────────────────┼──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+ ┌─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+ │                                                      L4 — NEURAL FIELD  (Jeannie Kernel)  2048+ adaptive LIF                                              │
+ │  n=2048 exc80% types[PYR/PV/SST/VIP] kernel.py:20  geometry 3D [0,1]^3 geometry.py:11  plasticity STP+BCM+STDP                                            │
+ │                                                                                                                                                          │
+ │   stimulate(NeuralStimulus) kernel.py:113                                                                                                               │
+ │     │  for concept in concepts[:24]: idx=assembly(concept) -> pending[idx]+=strength*(0.55+0.45*salience)*gain  kernel.py:122                            │
+ │     │  note_activation(strength*salience) + valence>0 ? DA/sero : NE  pulse() kernel.py:124                                                             │
+ │     └──────────────────────────┐                                                                                                                         │
+ │                                ▼                                                                                                                         │
+ │   _step_once() kernel.py:136 ──────────────────────────────────────────────────────────────────────────────────────────────────┐                          │
+ │   │ recurrent = Σ W[src->dst] * STP(src) * inhib_scale(if src>=exc)   activeEdges=last_spikes[src]    │                          │
+ │   │ noise ~ N(0,0.003)  refractory--  adaptation*0.92 ready            │                          │
+ │   │ potential[ready]*=leak0.93 + recurrent*gain + pending + noise - adaptation  pending*=0.5            │                          │
+ │   │ spikes = ready & (potential >= thresholds[0.60-1.80])  -> active[] │                          │
+ │   │ potential[spikes]=0 refractory=2 adaptation+=0.08                  │                          │
+ │   │ plasticity.step_traces(spikes) + delta=compute_weight_delta BCM    │                          │
+ │   │ W exc clip [0.001,0.22] inh [-0.22,-0.001] kernel.py:180            │                          │
+ │   │ rate_ema=0.995*rate_ema+0.005*spike; thresholds+=0.0004*(ema-0.035) │                          │
+ │   │ neuromod.step(); clusters=geometry.detect_clusters(active)          │                          │
+ │   │ growth.step(spikes, rate_ema, cluster_ids) -> _grow(SPAWN_PER_ASSEMBLY) centroid spawn / _prune silent  kernel.py:196-202                      │
+ │   └──────────────────────────────┬─────────────────────────────────────────────────────────────────────────┘                          │
+ │                                  │  snapshot() kernel.py:271  firing_rate mean_potential active[≤512] dominant_concepts overload/underactivity step_count │
+ │                                  │  heatmap_snapshot(cols 64) kernel.py:293  values[N] cell_types spikes neuromod growth                                                 │
+ └──────────────────────────────────┼──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+                                    │
+              ┌─────────────────────┼─────────────────────┐
+              │                     ▼                     │
+              │   ┌──────────────────────────────────────────────────────────┐
+              │   │        L5 — CORTICAL SHEET  gpu_brain2 40k-250k LIF     │
+              │   │  GRID 200 (40k) -> 500 (250k) fan_in24 radius8 BLOB5    │
+              │   │  Cupy brain_core.py:18  else CPU fallback = Field above │
+              │   │                                                          │
+              │   │  2D layout: input patch 50×50 TL  output patch 50×50 BR  BRAIN:126                              │
+              │   │  _encode_text_to_input() -> stable blobs: token->seed->choice 10 neurons/patch+=1.5  BRAIN:248 │
+              │   │  step() syn_current=Σ W·pre + neigh 8×roll + attractor + bias+drive -0.15*global_act + noise   │
+              │   │  homeostasis firing_avg*0.95 + thresholds clip [0.5,3.0] BRAIN:211-213                           │
+              │   │  eligibility*=0.95 +=0.1*post*pre -> reward*eligibility weight update  BRAIN:217-224            │
+              │   │  readout: x=spikes[out_patch] logits=x@W+b vocab8192 BRAIN:260 -> sampled token temp0.5 BRAIN:261 │
+              │   │  train_readout sparse outer only x>0  BRAIN:295  + attractor _form_attractor BRAIN:302          │
+              │   │                                                          │
+              │   │  SUPERBRAIN ROUTER super_brain.py:11                     │
+              │   │   Hybrid exact conf>=0.85 ─┐                             │
+              │   │   Hybrid keyword ──────────┼─> voice(gpu.mood.flavor) ─┼─> reply, source                        │
+              │   │   Facts (skip still learning)                            │
+              │   │   Smart (skip don't know) ───┘                             │
+              │   │   GPU spikes (fallback)                                   │
+              │   │   _maybe_distill -> teaches GPU readout from reliable replies                                                  │
+              │   └──────────────────────────┬───────────────────────────────┘
+              │                              │ logits/tokens + heatmap
+              └──────────────┬───────────────┴────────────────┐
+                             ▼                                │
+ ┌─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+ │                                                       L6 — COGNITIVE SHELL                                                              │
+ │                                                                                                                                                          │
+ │  ┌─────────────────────────────────┐  ┌──────────────────────────┐  ┌──────────────────────────┐  ┌──────────────────────────┐                           │
+ │  │  LLM CODEC (organ)              │  │  MEMORY (SQLite WAL)     │  │  WORKSPACE / DRIVES      │  │  SUPERVISOR / SAFETY     │                           │
+ │  │  Ollama qwen3.5:9b main         │  │  FTS5 relevance/          │  │  global workspace        │  │  allowlisted tools       │                           │
+ │  │  qwen3:1.7b fast  hermes3:3b fb  │  │  importance/recency/      │  │  homeostatic drives      │  │  no shell execution      │                           │
+ │  │  riven/smolvlm vision            │  │  salience/confidence      │  │  prediction/error loop   │  │  research boundary off    │                           │
+ │  │  httpx -> proposals only         │  │  observation envelopes     │  │  self_model evidence     │  │  dampen(0.85) kernel:334 │                           │
+ │  │  supervisor gates all writes     │  │  live/sim/imagined/replay  │  │  personality/relationship│  │  privacy-kill + e-stop    │                           │
+ │  └──────────────┬──────────────────┘  └─────────────┬────────────┘  └────────────┬─────────────┘  └────────────┬─────────────┘                           │
+ │                 │                                   │                            │                             │                                            │
+ │                 └───────────────────┬─────────────────┴────────────────┬───────────┴─────────────────┬───────────┘                                            │
+ │                                     ▼                                ▼                             ▼                                                        │
+ │                           ┌──────────────────────────────────────────────────────────────────────────────┐                                                │
+ │                           │         ORCHESTRATOR  decisions + contracts  jeannie/orchestrator.py       │                                                │
+ │                           └────────────────────────────────────┬─────────────────────────────────────────┘                                                │
+ └────────────────────────────────────────────────────────────────┼──────────────────────────────────────────────────────────────────────────────────────────┘
+                                                                  │
+                                                                  ▼
+ ┌─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+ │                                                         OUTPUT + PERSISTENCE                                                            │
+ │                                                                                                                                                          │
+ │  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐                                                     │
+ │  │  TUI     │  │  REST API│  │  CLI     │  │  CHECKPT │  │  MEMORY  │  │  METRICS │  │  HW BUS  │                                                     │
+ │  │ textual  │  │ fastapi  │  │ typer    │  │ .npz+.json│ │ SQLite  │  │ entropy  │  │ Z80 ports│                                                     │
+ │  │ 3-pane   │  │ localhost│  │ jeannie  │  │ STATE_V4 │  │ WAL     │  │ firing   │  │ 0x10-0x12│                                                     │
+ │  │ menu|map │  │ web/app  │  │ chat/demo│  │ 30s runner│ │ FTS5   │  │ novelty  │  │ MUX/WR/RD│                                                     │
+ │  │ heatmap  │  │ + web/   │  │          │  │ kernel:340│ │       │  │ CER MAE  │  │        │                                                     │
+ │  └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘                                                     │
+ │       └─────────────┼─────────────┼─────────────┼─────────────┼─────────────┼─────────────┼──────────────────────────────────────────────────────────┘
+ │                     └─────────────┴─────────────┴─────────────┴─────────────┴─────────────┴──────────> WORLD  (+ feedback to L2 via reward/valence)  │
+ └─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+                                         ╔════════════════════════════════════════════════════════════════╗
+                                         ║                   L0 PHYSICS FABRIC (parallel to all)        ║
+                                         ║  Octave SIMULATE_MEMRISTOR_WINDOWED.m:132 4-panel hysteresis ║
+                                         ║  Output= Σ A·sin(ωt+φ)  φ=atan(X/R)  φ IS weight            ║
+                                         ║  MULTIPLEX: φ 256 states (8-bit) × A × f 50 ch × coupling   ║
+                                         ║  =13M states/wire  vs 1 bit binary  memR README:705          ║
+                                         ║                                                                ║
+                                         ║  DC TRAIN 10-100ms/pulse ion migration  ----+                  ║
+                                         ║  AC INFER 1-10kHz optimal ω>>ω0 10-100×  ----+-> SEPARATED  ║
+                                         ║  Breadboard 10kHz max AVOID  Protoboard 100kHz  PCB 10MHz     ║
+                                         ║                                                                ║
+                                         ║  Z80 BUS (identical all levels memR/CLAUDE.md)                 ║
+                                         ║   OUT (0x10) MUX select cell/λ  OUT (0x11) WRITE DAC/phase    ║
+                                         ║   IN A,(0x12) ADC read interference  Arduino bridge piezo $2 ║
+                                         ║   Level4 MZI fiber 1550nm couplers PD 1ns 10k× faster 02-mesh ║
+                                         ║   D2NN $30 SLM $100  Si photonics 5A/B 1k-80k WDM             ║
+                                         ║                                                                ║
+                                         ║  DECODE: PLL phase  BPF sieve  envelope diode+C  gating       ║
+                                         ╚════════════════════════════════════════════════════════════════╝
